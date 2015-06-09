@@ -1,0 +1,20 @@
+{
+  "name": "folders-pkgcloud",
+  "version": "0.0.1",
+  "description": "Connector from Folders to cloud providers via pkgcloud",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/foldersjs/folders-pkgcloud.git"
+  },
+  "author": "",
+  "license": "(Apache-2.0 OR MIT)",
+  "bugs": {
+    "url": "https://github.com/foldersjs/folders-pkgcloud/issues"
+  },
+  "main": "./src/folders-pkgcloud",
+  "homepage": "https://github.com/foldersjs/folders-pkgcloud",
+  "dependencies": {
+    "pkgcloud": "1.x.x"
+  },
+  "devDependencies": {}
+}
