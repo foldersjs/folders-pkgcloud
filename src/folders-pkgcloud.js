@@ -1,174 +1,175 @@
 // Folders connector to pkgcloud abstraction library
 var pkgcloud = require('pkgcloud');
-var stream = require('stream');
+var Provider = require('./providers/provider');
 
-var client;
+
 var FoldersPkgcloud = function (prefix, options) {
-    this.prefix = prefix;
+
     this.configure(options);
-    console.log("inin foldersPkgcloud");
+    this.prefix = prefix || "/http_window.io_0:pkgcloud/";
+
+    console.log("inin foldersAws,", this.container);
+
 };
+
+
+FoldersPkgcloud.prototype.features = FoldersPkgcloud.features = {
+
+    cat: true,
+    ls: true,
+    write: true,
+    server: false
+};
+
+
 
 
 FoldersPkgcloud.prototype.configure = function (options) {
 
-    if (options) {
-        client = pkgcloud.storage.createClient(options);
+
+    var self = this;
+
+    if (typeof options.provider == 'string') {
+        self.singleProvider = true;
+        self.provider = options.provider;
+    } else if (options.provider instanceof Array) {
+        self.multipleProvider = true;
+    } else if (!options.provider) {
+        self.allService = true;
     }
+  
+
+    if (typeof options.region == 'string') {
+        self.singleRegion = true;
+        self.region = options.region;
+    } else if (options.region instanceof Array) {
+        self.multipleRegion = true;
+    } else if (!options.region) {
+        self.allRegion = true;
+    }
+
+
+    self.options = options;
+
+
 };
 
+module.exports = FoldersPkgcloud;
 
 
-// This function will fail if bucket lies in any region other then 
-// what is defined when instantiating this class
-// currently no semantic in pkgcloud to get and set  container location 
-// at runtime  
 FoldersPkgcloud.prototype.write = function (filename, data, cb) {
 
-    // hard coded container/bucket here .
-    // need to fix it .may be provided in 
-    // container/filename or as container argument
-    var writeStream = client.upload({
-        container: 'mybucket.test.com',
-        remote: filename
+    var self = this,
+        container;
+    var arr = getProviderRegion(self, path);
+    this.providerObj = getServiceObject(arr[0], {
+        container: self.container
     });
-
-    writeStream.on('error', function (err) {
-        // handle your error case
-
-        if (err) {
-
-            console.log("error in folders-pkgcloud write() ", err);
-            return cb(err, null);
-        }
-
-    });
-
-    writeStream.on('success', function (file) {
-        // success, file will be a File model
-        //console.log(file)
-        cb(null, "write uri success");
-    });
-
-
-    if (typeof data == 'string') {
-
-        var s = new stream.Readable();
-        s.push(data);
-        s.push(null);
-        data = s;
-    }
-
-    if (data instanceof stream) {
-
-        data.pipe(writeStream);
-    }
+    self.providerObj.ls(path, cb);
 
 };
+
 
 FoldersPkgcloud.prototype.cat = function (filename, cb) {
 
-	var stream = client.download({
-
-
-
-	});
-	
-	
-
-};
-
-FoldersPkgcloud.prototype.listAllContainers = function () {
-
-
-};
-
-/*
- * @params
- * containers : string,array
- * cb : Function
- *  more of a 'walk' then 'ls' 
- */
-// This function will fail if bucket lies in any region other then 
-// what is defined when instantiating this class
-// currently no semantic in pkgcloud to get and set  container location 
-// at runtime  
-FoldersPkgcloud.prototype.ls = function (containers, cb) {
-
-    if (!(containers instanceof Array)) {
-        containers = new Array(containers);
-	}
-    var tasksToGo = containers.length, result = [];
-
-    for (var i = 0; i < containers.length; ++i) {
-
-        ls(containers[i], function(err, data) {
-
-            if (err) {
-
-                console.log("error in folders-pkgcloud ls() ", err);
-                return cb(err, null);
-            }
-
-            result = result.concat(data);
-
-            if (--tasksToGo == 0)
-                return cb(null, result);
-
-        });
-
-    }
-
-};
-
-var ls = function(container, cb) {
-    var result = [];
-
-    //extra check for input argument 
-    if (!(container && (typeof container == 'string'))) {
-
-        return cb('not valid ionput', null);
-
-    }
-
-    client.getFiles(container, function(err, files) {
-
-        if (err) {
-            console.log("error in folders-pkgcloud ls() ", err);
-            return cb(err, null);
-
-        }
-
-        for (var i = 0; i < files.length; ++i) {
-
-            result[i] = container + '/' + files[i].name;
-
-        }
-
-        cb(null, result);
-
+    var self = this,
+        container;
+    var arr = getProviderRegion(self, path);
+    this.providerObj = getServiceObject(arr[0], {
+        container: self.container
     });
-
+    self.providerObj.cat(path, cb);
 
 }
 
 
-// Seems like they only support walk semantics, not ls.
-
-/*
-var client = pkgcloud.providers.amazon.storage.createClient({});
-client.getFiles(container, {limit: 100}, function(err, files) {
-
-});
-*/
 
 
+FoldersPkgcloud.prototype.ls = function (path, cb) {
+    var self = this,
+        container, pathPrefix;
+    var arr = getProviderRegionPath(self, path);
+    console.log(arr);
+    self.options.provider = arr[0];
+    self.options.region = arr[1];
+    pathPrefix = arr[2];
+    this.providerObj = getProviderObject(self.options, {
+        container: self.options.container
+    });
+    self.providerObj.ls(pathPrefix, cb);
+}
 
-/*
-client.getContainers(function (err, containers) {
 
-console.log(containers)
 
-	})
-	*/
-module.exports = FoldersPkgcloud;	
+
+var getProviderRegionPath = function (self, path) {
+
+    var provider, region, path;
+
+    if (self.multipleProvider) {
+
+        var parts = path.split('/');
+        provider = parts[0];
+        path = parts.splice(0, 1).join('/');
+
+    } else if (self.singleProvider) {
+
+        provider = self.provider;
+
+    } else if (self.allProvider) {
+        //default provider
+        provider = 'amazon';
+    }
+
+
+
+
+    if (self.multipleRegion) {
+
+        var parts = path.split('/');
+        region = parts[0];
+        path = parts.splice(0, 1).join('/');
+
+    } else if (self.singleRegion) {
+
+        region = self.region;
+
+    } else if (self.allRegion) {
+        //default region
+        region = 'us-west-2'
+    }
+
+    return [provider, region, path];
+}
+
+var getProviderObject = function (options, container) {
+
+    var client = require('pkgcloud').storage.createClient(options);
+    return new Provider(client, container);
+};
+
+
+
+
+FoldersPkgcloud.prototype.asFolders = function ( /*prefix,*/ pathPrefix, files) {
+    var out = [];
+
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var o = {
+            name: file.Key
+        };
+        o.fullPath = pathPrefix + o.name;
+        o.uri = "#" + this.prefix + o.fullPath;
+        o.size = file.Size || 0;
+        o.extension = path.extname(o.name).substr(1, path.extname(o.name).length - 1) || 'DIR';
+        o.type = "text/plain";
+        o.modificationTime = file.LastModified;
+        out.push(o);
+
+
+    }
+
+    return out;
+
+};
