@@ -8,7 +8,7 @@ var FoldersPkgcloud = function (prefix, options) {
     this.configure(options);
     this.prefix = prefix || "/http_window.io_0:pkgcloud/";
 
-    console.log("inin foldersAws,", this.container);
+    console.log("inin foldersAws,", this.container || 'All container');
 
 };
 
@@ -35,9 +35,9 @@ FoldersPkgcloud.prototype.configure = function (options) {
     } else if (options.provider instanceof Array) {
         self.multipleProvider = true;
     } else if (!options.provider) {
-        self.allService = true;
+        self.allProvider = true;
     }
-  
+
 
     if (typeof options.region == 'string') {
         self.singleRegion = true;
@@ -57,28 +57,36 @@ FoldersPkgcloud.prototype.configure = function (options) {
 module.exports = FoldersPkgcloud;
 
 
-FoldersPkgcloud.prototype.write = function (filename, data, cb) {
+FoldersPkgcloud.prototype.write = function (path, data, cb) {
 
     var self = this,
-        container;
-    var arr = getProviderRegion(self, path);
-    this.providerObj = getServiceObject(arr[0], {
-        container: self.container
+        container, pathPrefix;
+    var arr = getProviderRegionPath(self, path);
+
+    self.options.provider = arr[0];
+    self.options.region = arr[1];
+    pathPrefix = arr[2];
+    this.providerObj = getProviderObject(self.options, {
+        container: self.options.container
     });
-    self.providerObj.ls(path, cb);
+    self.providerObj.write(pathPrefix, data, cb);
 
 };
 
 
-FoldersPkgcloud.prototype.cat = function (filename, cb) {
+FoldersPkgcloud.prototype.cat = function (path, cb) {
 
     var self = this,
-        container;
-    var arr = getProviderRegion(self, path);
-    this.providerObj = getServiceObject(arr[0], {
-        container: self.container
+        container, pathPrefix;
+    var arr = getProviderRegionPath(self, path);
+
+    self.options.provider = arr[0];
+    self.options.region = arr[1];
+    pathPrefix = arr[2];
+    this.providerObj = getProviderObject(self.options, {
+        container: self.options.container
     });
-    self.providerObj.cat(path, cb);
+    self.providerObj.cat(pathPrefix, cb);
 
 }
 
@@ -89,7 +97,7 @@ FoldersPkgcloud.prototype.ls = function (path, cb) {
     var self = this,
         container, pathPrefix;
     var arr = getProviderRegionPath(self, path);
-    console.log(arr);
+
     self.options.provider = arr[0];
     self.options.region = arr[1];
     pathPrefix = arr[2];
@@ -108,35 +116,61 @@ var getProviderRegionPath = function (self, path) {
 
     if (self.multipleProvider) {
 
+        if (path[0] == '/') {
+            path = path.replace('/', '');
+        }
         var parts = path.split('/');
         provider = parts[0];
-        path = parts.splice(0, 1).join('/');
+		if (!(self.provider.indexOf(provider) > -1)) {
+            console.log('This provider not configured in your list ');
+            return;
+
+        }
+        path = parts.slice(1, parts.length).join('/');
 
     } else if (self.singleProvider) {
 
         provider = self.provider;
 
     } else if (self.allProvider) {
-        //default provider
-        provider = 'amazon';
+
+
+        if (path[0] == '/') {
+            path = path.replace('/', '');
+        }
+        var parts = path.split('/');
+        provider = parts[0];
+        path = parts.slice(1, parts.length).join('/');
     }
-
-
 
 
     if (self.multipleRegion) {
 
+        if (path[0] == '/') {
+            path = path.replace('/', '');
+        }
         var parts = path.split('/');
         region = parts[0];
-        path = parts.splice(0, 1).join('/');
+		if (!(self.region.indexOf(region) > -1)) {
+            console.log('This region not configured in your list ');
+            return;
+
+        }
+        path = parts.slice(1, parts.length).join('/');
 
     } else if (self.singleRegion) {
 
         region = self.region;
 
     } else if (self.allRegion) {
-        //default region
-        region = 'us-west-2'
+
+
+        if (path[0] == '/') {
+            path = path.replace('/', '');
+        }
+        var parts = path.split('/');
+        region = parts[0];
+        path = parts.slice(1, parts.length).join('/');
     }
 
     return [provider, region, path];
@@ -146,30 +180,4 @@ var getProviderObject = function (options, container) {
 
     var client = require('pkgcloud').storage.createClient(options);
     return new Provider(client, container);
-};
-
-
-
-
-FoldersPkgcloud.prototype.asFolders = function ( /*prefix,*/ pathPrefix, files) {
-    var out = [];
-
-    for (var i = 0; i < files.length; i++) {
-        var file = files[i];
-        var o = {
-            name: file.Key
-        };
-        o.fullPath = pathPrefix + o.name;
-        o.uri = "#" + this.prefix + o.fullPath;
-        o.size = file.Size || 0;
-        o.extension = path.extname(o.name).substr(1, path.extname(o.name).length - 1) || 'DIR';
-        o.type = "text/plain";
-        o.modificationTime = file.LastModified;
-        out.push(o);
-
-
-    }
-
-    return out;
-
 };

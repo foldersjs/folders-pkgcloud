@@ -116,10 +116,7 @@ var cat = function (container, filename, cb) {
 };
 
 
-Provider.prototype.listAllContainers = function () {
 
-
-};
 
 /*
  * @params
@@ -132,7 +129,13 @@ Provider.prototype.ls = function (path, cb) {
 
     var self = this,
         container, pathPrefix, arr;
+    if (self.allContainer) {
+        listAllContainers(cb);
+        return;
+
+    }
     arr = getContainerPathPrefix(self, path);
+
     container = arr[0];
     pathPrefix = arr[1];
     lsContainer(container, pathPrefix, cb);
@@ -168,9 +171,10 @@ var lsContainer = function (container, pathPrefix, cb) {
 
 var getContainerPathPrefix = function (self, path) {
 
-    var container, pathPrefix;
+    var container;
 
     if (self.multipleContainer) {
+
         var parts = path.split('/');
         container = parts[0];
         if (!(self.container.indexOf(container) > -1)) {
@@ -178,29 +182,60 @@ var getContainerPathPrefix = function (self, path) {
             return;
 
         }
-        pathPrefix = parts[1];
+
+        path = parts.slice(1, parts.length).join('/');
 
 
     } else if (self.singleContainer) {
-        pathPrefix = path;
+
         container = self.container;
 
     } else if (self.allContainer) {
         var parts = path.split('/');
         container = parts[0];
-        pathPrefix = parts[1];
+
+        path = parts.slice(1, parts.length).join('/');
 
     }
 
-    return [container, pathPrefix];
+    return [container, path];
 }
 
 
-/*
-client.getContainers(function (err, containers) {
 
-console.log(containers)
+var listAllContainers = function (cb) {
+    var result = [];
+    client.getContainers(function (err, containers) {
+        for (var i = 0; i < containers.length; ++i)
+            result[i] = containers[i].name;
+        cb(null, result);
 
-	})
-	*/
+    });
+}
+
+
+Provider.prototype.asFolders = function ( /*prefix,*/ files) {
+    var out = [];
+
+
+
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var o = {
+            name: file.Key
+        };
+        o.fullPath = o.name;
+        o.uri = "#" + this.prefix + o.fullPath;
+        o.size = file.Size || 0;
+        o.extension = path.extname(o.name).substr(1, path.extname(o.name).length - 1) || 'DIR';
+        o.type = "text/plain";
+        o.modificationTime = file.LastModified;
+        out.push(o);
+
+    }
+
+    return out;
+
+};
+
 module.exports = Provider;
